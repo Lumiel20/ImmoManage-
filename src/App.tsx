@@ -25,7 +25,9 @@ import {
   Eye,
   FileCode,
   Printer,
-  Check
+  Check,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -117,6 +119,34 @@ export default function App() {
   });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [currency, setCurrency] = useState<'EUR' | 'USD' | 'FCFA'>(() => {
+    return (localStorage.getItem('immo_currency') as 'EUR' | 'USD' | 'FCFA') || 'EUR';
+  });
+
+  const formatPrice = (amount: number | null | undefined, rawOnlySymbol = false) => {
+    if (amount === null || amount === undefined) {
+      if (currency === 'EUR') return '0 €';
+      if (currency === 'USD') return '$0';
+      return '0 FCFA';
+    }
+    
+    if (rawOnlySymbol) {
+      if (currency === 'USD') return `$${amount.toLocaleString('en-US')}`;
+      if (currency === 'FCFA') return `${amount.toLocaleString('fr-FR')} FCFA`;
+      return `${amount.toLocaleString('fr-FR')} €`;
+    }
+
+    if (currency === 'USD') {
+      const usdAmount = amount * 1.08;
+      return `$${Math.round(usdAmount).toLocaleString('en-US')}`;
+    } else if (currency === 'FCFA') {
+      const fcfaAmount = amount * 655.957;
+      return `${Math.round(fcfaAmount).toLocaleString('fr-FR')} FCFA`;
+    } else {
+      return `${amount.toLocaleString('fr-FR')} €`;
+    }
+  };
+
   const [biens, setBiens] = useState<Bien[]>([]);
   const [contrats, setContrats] = useState<Contrat[]>([]);
   const [locataires, setLocataires] = useState<any[]>([]);
@@ -831,8 +861,8 @@ export default function App() {
       return `
         <tr style="border-bottom: 1px solid #f3f4f6;">
           <td style="padding: 12px 16px; font-weight: 500; color: #1f2937;">${h.month}</td>
-          <td style="padding: 12px 16px; font-family: monospace; font-size: 13px; text-align: right; color: #374151;">${(h.amount || 0).toLocaleString('fr-FR')} €</td>
-          <td style="padding: 12px 16px; font-family: monospace; font-size: 13px; text-align: right; color: #111827; font-weight: 600;">${(isPaid ? h.amount : 0).toLocaleString('fr-FR')} €</td>
+          <td style="padding: 12px 16px; font-family: monospace; font-size: 13px; text-align: right; color: #374151;">${formatPrice(h.amount)}</td>
+          <td style="padding: 12px 16px; font-family: monospace; font-size: 13px; text-align: right; color: #111827; font-weight: 600;">${formatPrice(isPaid ? h.amount : 0)}</td>
           <td style="padding: 12px 16px; text-align: center; color: #4b5563; font-size: 12px;">${h.datePaiement || '-'}</td>
           <td style="padding: 12px 16px; text-align: right;">
             <span style="font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 9999px; ${badgeStyle}">
@@ -898,7 +928,7 @@ export default function App() {
           <strong style="color: #4338ca; font-size: 14px;">${c.bien_titre}</strong><br/>
           Contact locataire : <span style="font-family: monospace;">${c.locataire_email || 'Non renseigné'}</span><br/>
           Contrat : Bail d'habitation principal (Bail Actif)<br/>
-          Mensualité de base : ${c.loyer_mensuel?.toLocaleString('fr-FR') || '1000'} € / mois
+          Mensualité de base : ${formatPrice(c.loyer_mensuel || 1000)} / mois
         </div>
       </div>
     </div>
@@ -907,19 +937,19 @@ export default function App() {
     <div class="summary-grid">
       <div class="stat-card" style="border-top: 4px solid #4338ca;">
         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Loyers Attendus</div>
-        <div class="stat-val" style="color: #4338ca;">${totalDue.toLocaleString('fr-FR')} €</div>
+        <div class="stat-val" style="color: #4338ca;">${formatPrice(totalDue)}</div>
       </div>
       <div class="stat-card" style="border-top: 4px solid #0d9488;">
         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Encaissé</div>
-        <div class="stat-val" style="color: #0d9488;">${totalPaid.toLocaleString('fr-FR')} €</div>
+        <div class="stat-val" style="color: #0d9488;">${formatPrice(totalPaid)}</div>
       </div>
       <div class="stat-card" style="border-top: 4px solid #dc2626;">
         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Retards / Solde</div>
-        <div class="stat-val" style="color: #dc2626;">${totalLate.toLocaleString('fr-FR')} €</div>
+        <div class="stat-val" style="color: #dc2626;">${formatPrice(totalLate)}</div>
       </div>
       <div class="stat-card" style="border-top: 4px solid #0284c7;">
         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Revenu Net (H-Frais)</div>
-        <div class="stat-val" style="color: #0284c7;">${netReverse.toLocaleString('fr-FR')} €</div>
+        <div class="stat-val" style="color: #0284c7;">${formatPrice(netReverse)}</div>
       </div>
     </div>
 
@@ -960,6 +990,192 @@ export default function App() {
 </body>
 </html>
     `;
+  };
+
+  const generateContratPrintHtml = (c: Contrat) => {
+    const linkedLocataire = locataires.find(l => 
+      l.user_id === c.locataire_id || 
+      l.id === c.locataire_id || 
+      (l.email && c.locataire_email && l.email.toLowerCase() === c.locataire_email.toLowerCase())
+    );
+    const linkedBien = biens.find(b => b.id === c.bien_id);
+    const dateDebutFormatted = c.date_debut ? new Date(c.date_debut).toLocaleDateString('fr-FR') : 'Non renseignée';
+    const dateFinFormatted = c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : 'Indéterminée';
+    const numContrat = `IM-CONT-${c.id.toString().padStart(5, '0')}`;
+
+    const printHeaderSymbol = c.type === 'vente' ? 'CONTRAT DE VENTE' : 'BAIL D’HABITATION';
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Contrat ${numContrat} - ${c.bien_titre}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #1f2937; line-height: 1.6; background: #f8fafc; }
+    .container { max-width: 850px; margin: 0 auto; background: #ffffff; padding: 50px; border-radius: 16px; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05), 0 2px 10px -1px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 24px; margin-bottom: 30px; }
+    .header-logo { font-size: 26px; font-weight: 800; color: #4338ca; letter-spacing: -0.05em; text-transform: uppercase; }
+    .header-badge { color: #4338ca; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 6px 14px; border-radius: 9999px; letter-spacing: 0.05em; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 35px; }
+    .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.1em; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+    .card { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #f1f5f9; line-height: 1.6; margin-bottom: 20px; }
+    .info-label { font-weight: 600; color: #475569; width: 140px; display: inline-block; font-size: 13px; }
+    .info-val { color: #0f172a; font-weight: 505; font-size: 13px; }
+    .clause-box { font-size: 12px; color: #475569; background: #fafafa; border-left: 3px solid #6366f1; padding: 12px 16px; margin: 15px 0; border-radius: 0 8px 8px 0; }
+    .footer { border-top: 1px solid #e2e8f0; padding-top: 25px; font-size: 11px; color: #94a3b8; text-align: center; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="header-logo">ImmoManage</div>
+        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Service d'Administration & Gestion Contractuelle</div>
+      </div>
+      <div>
+        <span class="header-badge" style="background-color: ${c.statut === 'actif' ? '#ecfdf5' : '#fef2f2'}; color: ${c.statut === 'actif' ? '#047857' : '#b91c1c'}; border: 1px solid ${c.statut === 'actif' ? '#a7f3d0' : '#fecaca'};">
+          ${printHeaderSymbol} - ${c.statut.toUpperCase()}
+        </span>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 30px;">
+      <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.02em;">CONTRAT DE GÉRANCE RÉFÉRENCE : ${numContrat}</h2>
+      <p style="font-size: 12px; color: #64748b; margin-top: 5px;">Généré numériquement le ${new Date().toLocaleDateString('fr-FR')} - Mandat de gestion exclusif conforme à la réglementation en vigueur.</p>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="section-title">ADMINISTRATEUR DU BIEN</div>
+        <div class="card" style="font-size: 13px; color: #334155; min-height: 120px;">
+          <strong style="color: #0f172a; font-size: 14px;">ImmoTech Solutions SAS</strong><br/>
+          Service d'Administration des Biens et Gérance<br/>
+          RCS Paris B 123 456 789<br/>
+          Siret: 12345678900011<br/>
+          Cartes Professionnelles : G n° 4567-T (Prefectures de Police de Paris)
+        </div>
+      </div>
+      <div>
+        <div class="section-title">PRENEUR / CLIENT</div>
+        <div class="card" style="font-size: 13px; color: #334155; min-height: 120px;">
+          ${linkedLocataire ? `
+            <strong style="color: #4338ca; font-size: 14px;">${linkedLocataire.first_name} ${linkedLocataire.last_name}</strong><br/>
+            Email : <span style="font-family: monospace;">${linkedLocataire.email || c.locataire_email || 'Non renseigné'}</span><br/>
+            Téléphone : <span style="font-family: monospace;">${linkedLocataire.phone || 'Non renseigné'}</span><br/>
+            Profession : <span>${linkedLocataire.profession || 'Non renseignée'}</span><br/>
+            Revenu déclaré : <strong style="color: #0d9488;">${formatPrice(linkedLocataire.revenu_mensuel)} / mois</strong>
+          ` : `
+            <strong style="color: #4338ca; font-size: 14px;">Client Direct</strong><br/>
+            Email de contact : <span style="font-family: monospace;">${c.locataire_email || 'Non renseigné'}</span><br/>
+            Statut : Compte client généré sans fiche détaillée relative.
+          `}
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">DESCRIPTION DU BIEN CONCERNÉ</div>
+    <div class="card" style="margin-bottom: 30px;">
+      <div style="font-size: 15px; font-weight: 700; color: #1e1b4b; margin-bottom: 12px;">${c.bien_titre}</div>
+      <div style="grid-template-columns: 1fr 1fr; display: grid; gap: 10px;">
+        <div>
+          <span class="info-label">Type de bien :</span>
+          <span class="info-val" style="text-transform: capitalize;">${linkedBien?.type || 'Immobilier'}</span>
+        </div>
+        <div>
+          <span class="info-label">Localisation :</span>
+          <span class="info-val">${linkedBien?.ville || 'France'}</span>
+        </div>
+        <div>
+          <span class="info-label">Surface habitable :</span>
+          <span class="info-val">${linkedBien?.surface || 45} m²</span>
+        </div>
+        <div>
+          <span class="info-label">Nombre de pièces :</span>
+          <span class="info-val">${linkedBien?.nb_pieces || 2} pièces</span>
+        </div>
+      </div>
+      ${linkedBien?.description ? `
+        <div style="margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 12px; font-size: 12px; color: #475569; font-style: italic; line-height: 1.5;">
+          "${linkedBien.description}"
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="section-title">MODALITÉS FINANCIÈRES & CONDITIONS DU CONTRAT</div>
+    <div class="card" style="margin-bottom: 30px;">
+      <div style="grid-template-columns: 1fr 1fr; display: grid; gap: 15px;">
+        <div>
+          <span class="info-label">Type de contrat :</span>
+          <span class="info-val" style="text-transform: uppercase; font-weight: 700; color: #4338ca;">${c.type}</span>
+        </div>
+        <div>
+          <span class="info-label">Valeur contractuelle :</span>
+          <span class="info-val" style="font-weight: 700; color: #0d9488; font-size: 15px; font-family: monospace;">
+            ${c.type === 'vente' ? formatPrice(c.prix_vente) : `${formatPrice(c.loyer_mensuel)} / mois`}
+          </span>
+        </div>
+        <div>
+          <span class="info-label">Prise d'effet :</span>
+          <span class="info-val">${dateDebutFormatted}</span>
+        </div>
+        <div>
+          <span class="info-label">Échéance :</span>
+          <span class="info-val">${dateFinFormatted}</span>
+        </div>
+      </div>
+
+      <div class="clause-box">
+        <strong>Clause réglementaire d'indexation :</strong><br/>
+        Par convention expresse, il est convenu qu'en cas de bail de location, les loyers sont révisés annuellement à la date d'effet du contrat en fonction de l'indice de référence des loyers (IRL) publié par l'INSEE. Tout retard de paiement supérieur à 10 jours ouvrés entraînera l'application forfaitaire d'intérêts de retard à hauteur de 5.00 % de la somme due.
+      </div>
+    </div>
+
+    <div class="section-title">CONDITIONS PARTICULIÈRES & SIGNATURES</div>
+    <div style="font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 30px;">
+      Le présent contrat de gérance est régi par les dispositions législatives françaises s'appliquant en matière de baux de location ou de promesses de vente d'immeubles. Les parties s'engagent à exécuter de bonne foi les clauses édictées. Fait en deux exemplaires originaux reliés, visés numériquement et juridiquement par l'Administrateur de Biens.
+    </div>
+
+    <div style="margin-top: 50px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; font-size: 11px; color: #475569;">
+      <div>
+        <strong>Signature de l'Administrateur / Mandataire</strong>
+        <p style="color: #94a3b8; font-size: 10px; margin: 2px 0 0 0;">ImmoTech Solutions SAS</p>
+        <div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-top: 10px;"></div>
+        <p style="margin-top: 5px; color: #94a3b8;">Visa électronique enregistré le ${new Date().toLocaleDateString('fr-FR')}</p>
+      </div>
+      <div>
+        <strong>Signature du Mandant / Preneur</strong>
+        <p style="color: #94a3b8; font-size: 10px; margin: 2px 0 0 0;">Lu et approuvé - Mention manuscrite</p>
+        <div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-top: 10px;"></div>
+        <p style="margin-top: 5px; color: #94a3b8;">Pour acceptation des termes et conditions du mandat</p>
+      </div>
+    </div>
+
+    <div class="footer" style="margin-top: 60px;">
+      Ce document est un récapitulatif officiel de l'acte contractuel enregistré dans les bases d'accès de l'application.<br/>
+      ImmoManage Software Services © 2026. Tous droits réservés.
+    </div>
+  </div>
+</body>
+</html>
+    `;
+  };
+
+  const handlePrintContrat = (c: Contrat) => {
+    const html = generateContratPrintHtml(c);
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.print();
+      setToastMsg(`Impression / Export PDF lancé pour le contrat "${c.bien_titre}"`);
+    } else {
+      alert("La fenêtre d'impression a été bloquée par le navigateur. Veuillez autoriser les fenêtres contextuelles pour imprimer.");
+    }
   };
 
   const handleGenerateAndSaveReleve = async (contrat: Contrat) => {
@@ -2128,10 +2344,39 @@ export default function App() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-300 flex selection:bg-indigo-500/30">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-64 border-r border-neutral-800 flex flex-col p-4 bg-neutral-900/50 backdrop-blur-xl shrink-0">
-        <div className="flex items-center gap-3 px-2 mb-10">
+      <motion.aside 
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="hidden md:flex w-64 border-r border-neutral-800 flex flex-col p-4 bg-neutral-900/50 backdrop-blur-xl shrink-0"
+      >
+        <div className="flex items-center gap-3 px-2 mb-6">
           <img src="/logo.svg" className="w-8 h-8 select-none" alt="ImmoManage Logo" referrerPolicy="no-referrer" />
           <span className="font-bold text-white text-lg tracking-tight">ImmoManage</span>
+        </div>
+
+        {/* Currency Switcher (Devise) */}
+        <div className="px-2 mb-6 shrink-0">
+          <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 block mb-1.5 font-mono">Devise de l'application</label>
+          <div className="grid grid-cols-3 gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800/80">
+            {(['EUR', 'USD', 'FCFA'] as const).map((curr) => (
+              <button
+                key={curr}
+                onClick={() => {
+                  setCurrency(curr);
+                  localStorage.setItem('immo_currency', curr);
+                  setToastMsg(`Devise configurée sur : ${curr === 'EUR' ? 'Euro (€)' : curr === 'USD' ? 'Dollar ($)' : 'Franc CFA (FCFA)'}`);
+                }}
+                className={`py-1.5 rounded-lg text-xs font-bold font-mono transition-all duration-200 cursor-pointer ${
+                  currency === curr
+                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/10'
+                    : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900/50'
+                }`}
+              >
+                {curr === 'EUR' ? 'EUR (€)' : curr === 'USD' ? 'USD ($)' : 'CFA'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -2189,13 +2434,47 @@ export default function App() {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 pb-28 md:pb-12 relative h-screen">
         <div className="max-w-6xl mx-auto">
+          {/* Mobile Top bar with Logo & Currency selector */}
+          <div className="flex md:hidden items-center justify-between gap-4 mb-6 pb-4 border-b border-neutral-800">
+            <div className="flex items-center gap-2">
+              <img src="/logo.svg" className="w-7 h-7 select-none" alt="ImmoManage Logo" referrerPolicy="no-referrer" />
+              <span className="font-bold text-white text-base tracking-tight">ImmoManage</span>
+            </div>
+            
+            {/* Compact Currency Switcher */}
+            <div className="flex bg-neutral-900 px-1 py-1 rounded-xl border border-neutral-800 text-[11px]">
+              {(['EUR', 'USD', 'FCFA'] as const).map((curr) => (
+                <button
+                  key={curr}
+                  onClick={() => {
+                    setCurrency(curr);
+                    localStorage.setItem('immo_currency', curr);
+                    setToastMsg(`Devise : ${curr === 'EUR' ? 'Euro (€)' : curr === 'USD' ? 'Dollar ($)' : 'Franc CFA (FCFA)'}`);
+                  }}
+                  className={`px-2 py-1 rounded-lg font-bold font-mono transition-all duration-200 cursor-pointer ${
+                    currency === curr
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  {curr === 'EUR' ? '€' : curr === 'USD' ? '$' : 'CFA'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {activeTab === 'dashboard' && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} 
+              className="space-y-8"
+            >
               <header className="flex justify-between items-end">
                 <div>
                   <h2 className="text-3xl font-bold text-white tracking-tight">Bonjour, {user?.first_name || 'Admin'}</h2>
@@ -2235,55 +2514,60 @@ export default function App() {
                       const isOverdueDate = c.daysRemaining < 0;
                       
                       return (
-                        <div key={c.id} className="bg-neutral-950/60 border border-neutral-850 rounded-xl p-3.5 flex flex-col justify-between gap-3 text-xs">
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-neutral-200 truncate">{c.bien_titre}</span>
-                              <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-wider ${
+                        <div key={c.id} className="bg-neutral-950/40 border border-neutral-800 hover:border-neutral-700/60 rounded-xl p-4 flex flex-col justify-between gap-3 text-xs transition-all duration-300 shadow-md">
+                          <div className="space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-bold text-white text-sm tracking-tight truncate max-w-[70%]">{c.bien_titre}</span>
+                              <span className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold uppercase tracking-wider ${
                                 isOverdueDate 
-                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/10' 
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
                                   : c.daysRemaining === 7 
-                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/10'
-                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/10'
+                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                               }`}>
                                 {isOverdueDate 
                                   ? `Expiré il y a ${Math.abs(c.daysRemaining)} j` 
                                   : c.daysRemaining === 0 
-                                    ? "Aujourd'hui !" 
-                                    : `${c.daysRemaining} jours restants`
+                                    ? "Aujourd'hui" 
+                                    : `${c.daysRemaining} j restants`
                                 }
                               </span>
                             </div>
-                            <p className="text-[11px] text-neutral-400">Locataire : <span className="text-neutral-300 font-medium font-mono">{c.locataire_email || 'Non renseigné'}</span></p>
-                            <p className="text-[10px] text-neutral-500">Date de fin : {c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : 'Non renseignée'}</p>
+                            <div className="space-y-1">
+                              <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+                                <span className="text-neutral-500">Locataire :</span>
+                                <span className="text-neutral-300 font-medium font-mono truncate">{c.locataire_email || 'Non renseigné'}</span>
+                              </p>
+                              <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+                                <span className="text-neutral-500">Date de fin :</span>
+                                <span className="text-neutral-300 font-mono">{c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : 'Non renseignée'}</span>
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="flex items-center justify-between border-t border-neutral-850/60 pt-2.5">
+                          <div className="flex items-center justify-between border-t border-neutral-850/60 pt-3 mt-1">
                             {isAlreadyNotified ? (
-                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/10 flex items-center gap-1 opacity-90 select-none">
-                                ✓ Notifié
-                              </span>
+                              <>
+                                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/5 px-2.5 py-1 rounded-lg border border-emerald-500/10 flex items-center gap-1.5 opacity-90 select-none">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  Notification envoyée
+                                </span>
+                                <span className="text-[10px] text-emerald-500 font-mono font-medium">Traité</span>
+                              </>
                             ) : (
-                              <span className="text-[10px] font-semibold text-neutral-500 italic">
-                                En attente d'avis
-                              </span>
-                            )}
-
-                            {!isAlreadyNotified ? (
-                              <button
-                                onClick={() => handleSendExpiryNotification(c, c.daysRemaining)}
-                                className="bg-indigo-600/10 hover:bg-indigo-600/20 active:scale-95 text-indigo-400 hover:text-indigo-300 font-bold px-3 py-1.5 rounded-lg text-[11px] transition-all border border-indigo-500/15 cursor-pointer flex items-center gap-1.5"
-                              >
-                                <Bell className="w-3.5 h-3.5" />
-                                Notifier
-                              </button>
-                            ) : (
-                              <button
-                                disabled
-                                className="bg-neutral-900 text-neutral-600 font-medium px-3 py-1.5 rounded-lg text-[11px] border border-neutral-850 cursor-not-allowed flex items-center gap-1"
-                              >
-                                ✓ Notifié
-                              </button>
+                              <>
+                                <span className="text-[11px] font-medium text-neutral-400 flex items-center gap-1.5 select-none">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                                  Rappel requis
+                                </span>
+                                <button
+                                  onClick={() => handleSendExpiryNotification(c, c.daysRemaining)}
+                                  className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold px-3.5 py-1.5 rounded-xl text-[11px] transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/15"
+                                >
+                                  <Bell className="w-3.5 h-3.5" />
+                                  Notifier
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -2297,7 +2581,7 @@ export default function App() {
                 <StatCard label="Biens actifs" value={activeBiensCount.toString()} color="indigo" />
                 <StatCard label="Clients enregistrés" value={locataires.length.toString()} color="cyan" />
                 <StatCard label="Contrats en cours" value={activeContractsCount.toString()} color="violet" />
-                <StatCard label="Revenus mensuels" value={`${monthlyRentRevenue.toLocaleString()} €`} color="emerald" />
+                <StatCard label="Revenus mensuels" value={formatPrice(monthlyRentRevenue)} color="emerald" />
                 <StatCard label="Taux de vacance" value={`${vacancyRate}%`} color="rose" />
               </div>
 
@@ -2323,7 +2607,7 @@ export default function App() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={last6MonthsData}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                      margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#262626" horizontal={true} vertical={false} />
                       <XAxis 
@@ -2336,9 +2620,10 @@ export default function App() {
                       <YAxis 
                         stroke="#737373" 
                         tick={{ fill: '#a3a3a3' }}
-                        tickFormatter={(v) => `${v.toLocaleString()} €`}
+                        tickFormatter={(v) => formatPrice(v)}
                         tickLine={false}
                         axisLine={false}
+                        width={85}
                       />
                       <Tooltip 
                         cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
@@ -2355,14 +2640,14 @@ export default function App() {
                                       {entry.name} :
                                     </span>
                                     <span className="font-semibold text-white font-mono">
-                                      {entry.value.toLocaleString()} €
+                                      {formatPrice(entry.value)}
                                     </span>
                                   </div>
                                 ))}
                                 <div className="border-t border-neutral-850 pt-1.5 mt-1 flex gap-6 justify-between font-bold text-indigo-400">
                                   <span>Total attendu :</span>
                                   <span className="font-mono text-indigo-300">
-                                    {((dataObj['Loyers Encaissés'] || 0) + (dataObj['En Retard / Impayés'] || 0)).toLocaleString()} €
+                                    {formatPrice((dataObj['Loyers Encaissés'] || 0) + (dataObj['En Retard / Impayés'] || 0))}
                                   </span>
                                 </div>
                               </div>
@@ -2417,7 +2702,7 @@ export default function App() {
                                 <td className="px-6 py-4 font-medium text-white">{bien.titre}</td>
                                 <td className="px-6 py-4 capitalize">{bien.type}</td>
                                 <td className="px-6 py-4 flex items-center gap-1"><MapPin className="w-3 h-3 opacity-40"/> {bien.ville}</td>
-                                <td className="px-6 py-4 font-mono">{bien.prix.toLocaleString()} €</td>
+                                <td className="px-6 py-4 font-mono">{formatPrice(bien.prix)}</td>
                                 <td className="px-6 py-4">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
                                     bien.statut === 'disponible' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -2454,7 +2739,12 @@ export default function App() {
           )}
 
           {activeTab === 'biens' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} 
+              className="space-y-6"
+            >
               <header className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-white tracking-tight">Biens Immobiliers</h2>
                 <button onClick={openNewBien} className="bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold px-4 py-2 rounded-xl text-white transition-all transform active:scale-95 flex items-center gap-2 shadow-lg shadow-indigo-600/20 cursor-pointer">
@@ -2487,7 +2777,14 @@ export default function App() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(loading ? Array.from({length: 6}) : filteredBiens).map((bien, i) => (
-                  <div key={bien?.id || i} className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden group hover:border-neutral-700 transition-all flex flex-col justify-between">
+                  <motion.div 
+                    key={bien?.id || i} 
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: Math.min(i * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden group hover:border-neutral-700 transition-all flex flex-col justify-between shadow-md hover:shadow-xl"
+                  >
                     <div>
                       <div className="aspect-[4/3] bg-neutral-800 relative overflow-hidden">
                         {loading ? (
@@ -2520,7 +2817,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="px-5 pb-5 pt-2 flex justify-between items-center bg-neutral-900/50 border-t border-neutral-800/40">
-                      <span className="text-lg font-bold text-white leading-none">{loading ? '...' : (bien.prix || 0).toLocaleString()} €</span>
+                      <span className="text-lg font-bold text-white leading-none">{loading ? '...' : formatPrice(bien.prix)}</span>
                       {!loading && (
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEditBien(bien)} className="text-amber-400 hover:bg-amber-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Modifier">
@@ -2532,7 +2829,7 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
                 {!loading && filteredBiens.length === 0 && (
                   <div className="col-span-full py-12 text-center text-neutral-500 italic">
@@ -2544,7 +2841,12 @@ export default function App() {
           )}
 
           {activeTab === 'contrats' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} 
+              className="space-y-6"
+            >
               <header className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-white tracking-tight">Contrats</h2>
                 <button onClick={() => openNewContrat()} className="bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold px-4 py-2 rounded-xl text-white transition-all transform active:scale-95 flex items-center gap-2 shadow-lg shadow-indigo-600/20 cursor-pointer">
@@ -2584,55 +2886,60 @@ export default function App() {
                       const isOverdueDate = c.daysRemaining < 0;
                       
                       return (
-                        <div key={c.id} className="bg-neutral-950/60 border border-neutral-850 rounded-xl p-3.5 flex flex-col justify-between gap-3 text-xs">
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-neutral-200 truncate">{c.bien_titre}</span>
-                              <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-wider ${
+                        <div key={c.id} className="bg-neutral-950/40 border border-neutral-800 hover:border-neutral-700/60 rounded-xl p-4 flex flex-col justify-between gap-3 text-xs transition-all duration-300 shadow-md">
+                          <div className="space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-bold text-white text-sm tracking-tight truncate max-w-[70%]">{c.bien_titre}</span>
+                              <span className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold uppercase tracking-wider ${
                                 isOverdueDate 
-                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/10' 
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
                                   : c.daysRemaining === 7 
-                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/10'
-                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/10'
+                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                               }`}>
                                 {isOverdueDate 
                                   ? `Expiré il y a ${Math.abs(c.daysRemaining)} j` 
                                   : c.daysRemaining === 0 
-                                    ? "Aujourd'hui !" 
-                                    : `${c.daysRemaining} jours restants`
+                                    ? "Aujourd'hui" 
+                                    : `${c.daysRemaining} j restants`
                                 }
                               </span>
                             </div>
-                            <p className="text-[11px] text-neutral-400">Locataire : <span className="text-neutral-300 font-medium font-mono">{c.locataire_email || 'Non renseigné'}</span></p>
-                            <p className="text-[10px] text-neutral-500">Fin : {c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : 'Non renseignée'}</p>
+                            <div className="space-y-1">
+                              <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+                                <span className="text-neutral-500">Locataire :</span>
+                                <span className="text-neutral-300 font-medium font-mono truncate">{c.locataire_email || 'Non renseigné'}</span>
+                              </p>
+                              <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+                                <span className="text-neutral-500">Date de fin :</span>
+                                <span className="text-neutral-300 font-mono">{c.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : 'Non renseignée'}</span>
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="flex items-center justify-between border-t border-neutral-850/60 pt-2.5">
+                          <div className="flex items-center justify-between border-t border-neutral-850/60 pt-3 mt-1">
                             {isAlreadyNotified ? (
-                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/10 flex items-center gap-1.5 opacity-90 select-none">
-                                ✓ Notifié
-                              </span>
+                              <>
+                                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/5 px-2.5 py-1 rounded-lg border border-emerald-500/10 flex items-center gap-1.5 opacity-90 select-none">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  Notification envoyée
+                                </span>
+                                <span className="text-[10px] text-emerald-500 font-mono font-medium">Traité</span>
+                              </>
                             ) : (
-                              <span className="text-[10px] font-semibold text-neutral-500 italic">
-                                Non notifié
-                              </span>
-                            )}
-
-                            {!isAlreadyNotified ? (
-                              <button
-                                onClick={() => handleSendExpiryNotification(c, c.daysRemaining)}
-                                className="bg-indigo-600/10 hover:bg-indigo-600/20 active:scale-95 text-indigo-400 hover:text-indigo-300 font-bold px-3 py-1.5 rounded-lg text-[11px] transition-all border border-indigo-500/15 cursor-pointer flex items-center gap-1.5"
-                              >
-                                <Bell className="w-3.5 h-3.5" />
-                                Notifier le client
-                              </button>
-                            ) : (
-                              <button
-                                disabled
-                                className="bg-neutral-900 text-neutral-600 font-medium px-3 py-1.5 rounded-lg text-[11px] border border-neutral-850 cursor-not-allowed flex items-center gap-1"
-                              >
-                                ✓ Notifié
-                              </button>
+                              <>
+                                <span className="text-[11px] font-medium text-neutral-400 flex items-center gap-1.5 select-none">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                                  Rappel requis
+                                </span>
+                                <button
+                                  onClick={() => handleSendExpiryNotification(c, c.daysRemaining)}
+                                  className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold px-3.5 py-1.5 rounded-xl text-[11px] transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-600/15"
+                                >
+                                  <Bell className="w-3.5 h-3.5" />
+                                  Notifier
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -2669,7 +2976,7 @@ export default function App() {
                               {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString() : 'Indéterminé'}
                             </td>
                             <td className="px-6 py-4 font-mono">
-                              {contrat.type === 'vente' ? `${(contrat.prix_vente || 0).toLocaleString()} €` : `${(contrat.loyer_mensuel || 0).toLocaleString()} €/mois`}
+                              {contrat.type === 'vente' ? formatPrice(contrat.prix_vente) : `${formatPrice(contrat.loyer_mensuel)}/mois`}
                             </td>
                             <td className="px-6 py-4">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
@@ -2680,6 +2987,9 @@ export default function App() {
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-1">
+                                <button onClick={() => handlePrintContrat(contrat)} className="text-emerald-400 hover:bg-emerald-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Exporter en PDF / Imprimer les détails">
+                                  <Printer className="w-4 h-4" />
+                                </button>
                                 <button onClick={() => openDocModal(contrat)} className="text-indigo-400 hover:bg-indigo-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Documents (Baux, Quittances)">
                                   <Paperclip className="w-4 h-4" />
                                 </button>
@@ -2702,7 +3012,12 @@ export default function App() {
           )}
 
           {activeTab === 'clients' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} 
+              className="space-y-6"
+            >
               <header className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-white tracking-tight">Clients (Locataires)</h2>
                 <button onClick={openNewLocataire} className="bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold px-4 py-2 rounded-xl text-white transition-all transform active:scale-95 flex items-center gap-2 shadow-lg shadow-indigo-600/20 cursor-pointer">
@@ -2745,7 +3060,7 @@ export default function App() {
                               <p className="text-neutral-500 text-xs">{loc.phone || 'Aucun numéro'}</p>
                             </td>
                             <td className="px-6 py-4">{loc.profession || 'N/A'}</td>
-                            <td className="px-6 py-4 font-mono">{(loc.revenu_mensuel || 0).toLocaleString()} €</td>
+                            <td className="px-6 py-4 font-mono">{formatPrice(loc.revenu_mensuel)}</td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-1">
                                 <button onClick={() => openEditLocataire(loc)} className="text-amber-400 hover:bg-amber-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Modifier">
@@ -2767,7 +3082,12 @@ export default function App() {
           )}
 
           {activeTab === 'paiements' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} 
+              className="space-y-6"
+            >
               <header className="flex justify-between items-center">
                 <div>
                   <h2 className="text-3xl font-bold text-white tracking-tight">Suivi & Rapports Financiers</h2>
@@ -2821,7 +3141,7 @@ export default function App() {
                     <div className="p-4 bg-neutral-950 border border-neutral-800/60 rounded-xl">
                       <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Total Encaissé (Mois)</p>
                       <p className="text-2xl font-bold text-white">
-                        {totalPaidRent.toLocaleString()} €
+                        {formatPrice(totalPaidRent)}
                       </p>
                     </div>
                     <div className="p-4 bg-neutral-950 border border-neutral-800/60 rounded-xl">
@@ -2830,7 +3150,7 @@ export default function App() {
                     </div>
                     <div className="p-4 bg-neutral-950 border border-neutral-800/60 rounded-xl">
                       <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Impayés / Retards</p>
-                      <p className="text-2xl font-bold text-white">{totalLateRent.toLocaleString()} €</p>
+                      <p className="text-2xl font-bold text-white">{formatPrice(totalLateRent)}</p>
                     </div>
                   </div>
 
@@ -2864,7 +3184,7 @@ export default function App() {
                                 <td className="px-6 py-4 text-xs font-mono uppercase text-neutral-300">
                                   {new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
                                 </td>
-                                <td className="px-6 py-4 font-mono text-neutral-200">{(c.loyer_mensuel || 1000).toLocaleString()} €</td>
+                                <td className="px-6 py-4 font-mono text-neutral-200">{formatPrice(c.loyer_mensuel || 1000)}</td>
                                 <td className="px-6 py-4 text-neutral-450 text-xs">Virement bancaire / RIB</td>
                                 <td className="px-6 py-4">
                                   {pStatus.isLate ? (
@@ -2946,7 +3266,7 @@ export default function App() {
                               <tr key={c.id || idx} className="hover:bg-neutral-850/30 transition-colors">
                                 <td className="px-6 py-4">
                                   <p className="font-semibold text-white">{c.bien_titre}</p>
-                                  <p className="text-xs text-neutral-500">Loyer mensuel : {c.loyer_mensuel?.toLocaleString() || '1000'} €</p>
+                                  <p className="text-xs text-neutral-500">Loyer mensuel : {formatPrice(c.loyer_mensuel || 1000)}</p>
                                 </td>
                                 <td className="px-6 py-4 text-xs font-mono text-neutral-300">
                                   {c.locataire_email || 'Bailleur en direct'}
@@ -2957,7 +3277,7 @@ export default function App() {
                                 <td className="px-6 py-4">
                                   <div className="space-y-1">
                                     <span className="font-mono text-xs font-bold text-neutral-200">
-                                      {totalPaid.toLocaleString()} € / {totalDue.toLocaleString()} €
+                                      {formatPrice(totalPaid)} / {formatPrice(totalDue)}
                                     </span>
                                     <div className="w-28 bg-neutral-800 h-1.5 rounded-full overflow-hidden">
                                       <div 
@@ -2998,7 +3318,12 @@ export default function App() {
           )}
 
           {activeTab === 'historique' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }} 
+              className="space-y-6"
+            >
               <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-bold text-white tracking-tight">Historique d'Activité</h2>
@@ -3172,7 +3497,11 @@ export default function App() {
               Accueil
             </span>
             {activeTab === 'dashboard' && (
-              <span className="w-1 h-1 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" />
+              <motion.span 
+                layoutId="activeSubdotMobile"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" 
+              />
             )}
           </button>
 
@@ -3194,7 +3523,11 @@ export default function App() {
               Biens
             </span>
             {activeTab === 'biens' && (
-              <span className="w-1 h-1 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" />
+              <motion.span 
+                layoutId="activeSubdotMobile"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" 
+              />
             )}
           </button>
 
@@ -3216,7 +3549,11 @@ export default function App() {
               Clients
             </span>
             {activeTab === 'clients' && (
-              <span className="w-1 h-1 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" />
+              <motion.span 
+                layoutId="activeSubdotMobile"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" 
+              />
             )}
           </button>
 
@@ -3238,7 +3575,11 @@ export default function App() {
               Baux
             </span>
             {activeTab === 'contrats' && (
-              <span className="w-1 h-1 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" />
+              <motion.span 
+                layoutId="activeSubdotMobile"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" 
+              />
             )}
           </button>
 
@@ -3260,7 +3601,11 @@ export default function App() {
               Flux
             </span>
             {activeTab === 'paiements' && (
-              <span className="w-1 h-1 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" />
+              <motion.span 
+                layoutId="activeSubdotMobile"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" 
+              />
             )}
           </button>
 
@@ -3282,7 +3627,11 @@ export default function App() {
               Journal
             </span>
             {activeTab === 'historique' && (
-              <span className="w-1 h-1 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" />
+              <motion.span 
+                layoutId="activeSubdotMobile"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1 absolute bottom-[-4px]" 
+              />
             )}
           </button>
         </div>
@@ -3934,7 +4283,7 @@ export default function App() {
                   <div className="text-left md:text-right font-mono">
                     <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Revenu déclaré</p>
                     <p className="text-xl font-bold text-emerald-400 mt-0.5">
-                      {(selectedClientForDetails.revenu_mensuel || 0).toLocaleString()} €
+                      {formatPrice(selectedClientForDetails.revenu_mensuel)}
                       <span className="text-[11px] text-neutral-500 font-normal font-sans ml-1">/ mois</span>
                     </p>
                   </div>
@@ -4055,8 +4404,8 @@ export default function App() {
                                 </span>
                                 <p className="text-sm font-bold text-white mt-1">
                                   {c.type === 'vente' 
-                                    ? `${(c.prix_vente || 0).toLocaleString()} €` 
-                                    : `${(c.loyer_mensuel || 0).toLocaleString()} € / mois`
+                                    ? formatPrice(c.prix_vente) 
+                                    : `${formatPrice(c.loyer_mensuel)} / mois`
                                   }
                                 </p>
                               </div>
@@ -4143,7 +4492,7 @@ export default function App() {
                   >
                     <option value="">-- Choisir un bien --</option>
                     {biens.map(b => (
-                      <option key={b.id} value={b.id}>{b.titre} ({b.ville} - {b.prix.toLocaleString()} €)</option>
+                      <option key={b.id} value={b.id}>{b.titre} ({b.ville} - {formatPrice(b.prix)})</option>
                     ))}
                   </select>
                   {contratErrors.bienId && (touched.contratBienId || attemptedSubmit.contrat) && (
@@ -4300,7 +4649,7 @@ export default function App() {
                   <div className="bg-neutral-950 p-4 rounded-2xl border border-neutral-800/50 flex justify-between items-center">
                     <div>
                       <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Loyer mensuel</p>
-                      <p className="text-2xl font-bold text-indigo-400 mt-1">{(selectedHistoryContrat.loyer_mensuel || 1000).toLocaleString()} €</p>
+                      <p className="text-2xl font-bold text-indigo-400 mt-1">{formatPrice(selectedHistoryContrat.loyer_mensuel || 1000)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Statut global</p>
@@ -4327,8 +4676,8 @@ export default function App() {
                           <div className="space-y-0.5">
                             <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Loyers perçus sur l'année</p>
                             <p className="text-sm font-semibold text-neutral-300">
-                              <span className="text-white font-bold font-mono text-base">{collectedAnnual.toLocaleString()} €</span>
-                              <span className="text-neutral-500 font-normal"> sur {expectedAnnual.toLocaleString()} € attendus</span>
+                              <span className="text-white font-bold font-mono text-base">{formatPrice(collectedAnnual)}</span>
+                              <span className="text-neutral-500 font-normal"> sur {formatPrice(expectedAnnual)} attendus</span>
                             </p>
                           </div>
                           <div className="text-right space-y-0.5">
@@ -4379,7 +4728,7 @@ export default function App() {
                             <div className="flex items-center gap-2.5">
                               {m.amount > 0 && (
                                 <span className="font-mono text-xs font-semibold text-neutral-300">
-                                  {m.amount.toLocaleString()} €
+                                  {formatPrice(m.amount)}
                                 </span>
                               )}
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border font-mono ${m.colorClass}`}>
@@ -4612,19 +4961,19 @@ export default function App() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-neutral-950/80 p-3 rounded-xl border border-neutral-850 text-center">
                       <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Attendus</p>
-                      <p className="text-sm font-bold text-indigo-400 mt-1 font-mono">{totalDue.toLocaleString()} €</p>
+                      <p className="text-sm font-bold text-indigo-400 mt-1 font-mono">{formatPrice(totalDue)}</p>
                     </div>
                     <div className="bg-neutral-950/80 p-3 rounded-xl border border-neutral-850 text-center">
                       <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Perçus</p>
-                      <p className="text-sm font-bold text-emerald-400 mt-1 font-mono">{totalPaid.toLocaleString()} €</p>
+                      <p className="text-sm font-bold text-emerald-400 mt-1 font-mono">{formatPrice(totalPaid)}</p>
                     </div>
                     <div className="bg-neutral-950/80 p-3 rounded-xl border border-neutral-850 text-center">
                       <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Impayés</p>
-                      <p className="text-sm font-bold text-rose-400 mt-1 font-mono">{totalLate.toLocaleString()} €</p>
+                      <p className="text-sm font-bold text-rose-400 mt-1 font-mono">{formatPrice(totalLate)}</p>
                     </div>
                     <div className="bg-neutral-950/80 p-3 rounded-xl border border-neutral-850 text-center col-span-2 sm:col-span-1">
                       <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider">Revenu Net</p>
-                      <p className="text-sm font-bold text-sky-400 mt-1 font-mono">{netReverse.toLocaleString()} €</p>
+                      <p className="text-sm font-bold text-sky-400 mt-1 font-mono">{formatPrice(netReverse)}</p>
                     </div>
                   </div>
 
@@ -4640,7 +4989,7 @@ export default function App() {
                       <p className="font-bold text-neutral-300 uppercase tracking-wider text-[9px] mb-1">DESTINATAIRE BAIL</p>
                       <p className="text-white font-semibold">{selectedReleveContrat.locataire_email || 'Bailleur en direct'}</p>
                       <p className="mt-0.5">Début contrat : {selectedReleveContrat.date_debut ? new Date(selectedReleveContrat.date_debut).toLocaleDateString('fr-FR') : 'Non spécifié'}</p>
-                      <p>Mensualité type : {selectedReleveContrat.loyer_mensuel?.toLocaleString() || '1000'} € / mois</p>
+                      <p>Mensualité type : {formatPrice(selectedReleveContrat.loyer_mensuel || 1000)} / mois</p>
                     </div>
                   </div>
 
@@ -4664,8 +5013,8 @@ export default function App() {
                             return (
                               <tr key={m.index} className="hover:bg-neutral-900/30">
                                 <td className="p-3 font-semibold text-white">{m.month}</td>
-                                <td className="p-3 text-right font-mono text-neutral-400">{(m.amount || 0).toLocaleString()} €</td>
-                                <td className="p-3 text-right font-mono text-white font-bold">{(isPaid ? m.amount : 0).toLocaleString()} €</td>
+                                <td className="p-3 text-right font-mono text-neutral-400">{formatPrice(m.amount)}</td>
+                                <td className="p-3 text-right font-mono text-white font-bold">{formatPrice(isPaid ? m.amount : 0)}</td>
                                 <td className="p-3 text-center text-neutral-400 font-mono text-[10px]">{m.datePaiement || '-'}</td>
                                 <td className="p-3 text-right">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono ${m.colorClass}`}>
@@ -4736,20 +5085,27 @@ function SidebarItem({ icon, label, active, onClick, badge }: { icon: React.Reac
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative group ${
         active 
-          ? 'bg-indigo-500/10 text-white shadow-sm font-semibold border-l-2 border-indigo-500 pl-2.5' 
-          : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
+          ? 'bg-indigo-500/10 text-white shadow-sm font-semibold pl-3' 
+          : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/40 pl-3'
       }`}
     >
-      <div className="flex items-center gap-3">
-        <span className={`${active ? 'text-indigo-400' : 'text-neutral-500 group-hover:text-neutral-300'}`}>
+      {active && (
+        <motion.div 
+          layoutId="activeSidebarIndicator"
+          className="absolute left-0 top-2 bottom-2 w-[3.5px] bg-indigo-500 rounded-r-md"
+          transition={{ type: "spring", stiffness: 350, damping: 28 }}
+        />
+      )}
+      <div className="flex items-center gap-3 relative z-10">
+        <span className={`${active ? 'text-indigo-400' : 'text-neutral-500 group-hover:text-neutral-300'} transition-colors duration-200`}>
           {React.cloneElement(icon as React.ReactElement, { className: 'w-5 h-5' })}
         </span>
         {label}
       </div>
       {badge !== undefined && (
-        <span className="bg-rose-500/20 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-500/30 animate-pulse">
+        <span className="bg-rose-500/20 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-500/30 animate-pulse relative z-10">
           {badge}
         </span>
       )}
@@ -4767,13 +5123,19 @@ function StatCard({ label, value, color }: { label: string, value: string, color
   };
 
   return (
-    <div className={`p-6 rounded-2xl bg-gradient-to-br border bg-neutral-900 ${colors[color]} relative overflow-hidden group`}>
+    <motion.div 
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -3, scale: 1.01 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className={`p-6 rounded-2xl bg-gradient-to-br border bg-neutral-900 ${colors[color]} relative overflow-hidden group shadow-md hover:shadow-lg`}
+    >
       <div className="relative z-10">
         <p className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2">{label}</p>
         <p className="text-3xl font-bold text-white tracking-tighter">{value}</p>
       </div>
       <div className={`absolute -right-4 -bottom-4 w-24 h-24 bg-current opacity-5 blur-3xl group-hover:opacity-10 transition-opacity`} />
-    </div>
+    </motion.div>
   );
 }
 
