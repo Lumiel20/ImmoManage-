@@ -1,0 +1,10 @@
+{
+  "name": "ImmoManage API",
+  "description": "API RESTful complète pour la gestion immobilière : biens, propriétaires, locataires, contrats et paiements.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
