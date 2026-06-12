@@ -1,27 +1,27 @@
 import db from '../../config/db';
 
 export const findAll = async () => {
-  return db('contrats')
-    .join('biens', 'contrats.bien_id', 'biens.id')
-    .leftJoin('users as locataires', 'contrats.locataire_id', 'locataires.id')
-    .select('contrats.*', 'biens.titre as bien_titre', 'locataires.email as locataire_email');
+  return db('contracts')
+    .join('properties', 'contracts.bien_id', 'properties.id')
+    .leftJoin('users as locataires', 'contracts.locataire_id', 'locataires.id')
+    .select('contracts.*', 'properties.titre as bien_titre', 'locataires.email as locataire_email');
 };
 
 export const findById = async (id: number) => {
-  return db('contrats').where('contrats.id', id).first();
+  return db('contracts').where('contracts.id', id).first();
 };
 
 export const create = async (contratData: any) => {
-  const [id] = await db('contrats').insert(contratData);
+  const [id] = await db('contracts').insert(contratData);
   return id;
 };
 
 export const update = async (id: number, contratData: any) => {
-  return db('contrats').where({ id }).update(contratData);
+  return db('contracts').where({ id }).update(contratData);
 };
 
 export const remove = async (id: number) => {
-  return db('contrats').where({ id }).del();
+  return db('contracts').where({ id }).del();
 };
 
 export const getDocumentsByContratId = async (contratId: number) => {

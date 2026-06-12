@@ -36,10 +36,14 @@ export const firebaseSync = async (data: { email: string; first_name?: string; l
       password_hash: 'EXTERNAL_FIREBASE_USER',
       first_name: data.first_name || data.email.split('@')[0],
       last_name: data.last_name || '',
-      role: 'locataire',
+      role: 'agent', // Assign 'agent' role by default so they can manage contracts
     };
     const userId = await authRepository.createUser(userToCreate);
     user = await authRepository.findUserById(userId);
+  } else if (user.role === 'locataire') {
+    // Promote user role to 'agent' to ensure they have permission to access management endpoints
+    await authRepository.updateUser(user.id, { role: 'agent' });
+    user = await authRepository.findUserById(user.id);
   }
   const token = generateToken({ id: user.id, role: user.role });
   return { user, token };

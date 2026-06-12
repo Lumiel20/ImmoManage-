@@ -1,1 +1,176 @@
 @import "tailwindcss";
+
+/* Master Light Theme Overrides */
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="light"] {
+  /* Scrollbars and body properties */
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+/* Background overrides */
+[data-theme="light"] .bg-neutral-950,
+[data-theme="light"] .selection\:bg-indigo-500\/30::selection {
+  background-color: #f8fafc !important; /* light slate background */
+}
+
+[data-theme="light"] .bg-neutral-950 {
+  background-color: #f1f5f9 !important; /* Slightly darker light gray for background base on panels */
+}
+
+/* Auth background should be nice in light mode, maybe clean slate-50 background */
+[data-theme="light"] div.min-h-screen.bg-neutral-950 {
+  background-color: #f8fafc !important;
+}
+
+[data-theme="light"] .bg-neutral-900 {
+  background-color: #ffffff !important; /* Pure white card backgrounds */
+}
+
+[data-theme="light"] .bg-neutral-900\/50,
+[data-theme="light"] .bg-neutral-900\/90 {
+  background-color: rgba(255, 255, 255, 0.85) !important; /* elegant white glass */
+  backdrop-filter: blur(24px) !important;
+}
+
+[data-theme="light"] .bg-neutral-850 {
+  background-color: #f1f5f9 !important; /* soft contrasting background */
+}
+
+[data-theme="light"] .bg-neutral-800 {
+  background-color: #e2e8f0 !important; /* visible borders / tags */
+}
+
+[data-theme="light"] .bg-neutral-800\/50 {
+  background-color: rgba(226, 232, 240, 0.5) !important;
+}
+
+/* Hover background states */
+[data-theme="light"] .hover\:bg-neutral-800:hover,
+[data-theme="light"] .hover\:bg-neutral-850:hover,
+[data-theme="light"] .hover\:bg-neutral-800\/80:hover {
+  background-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] .hover\:bg-neutral-900\/50:hover {
+  background-color: rgba(241, 245, 249, 0.6) !important;
+}
+
+[data-theme="light"] .hover\:bg-neutral-750:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Border overrides */
+[data-theme="light"] .border-neutral-900 {
+  border-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] .border-neutral-850 {
+  border-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] .border-neutral-800,
+[data-theme="light"] .border-neutral-800\/80 {
+  border-color: #e2e8f0 !important; /* soft Slate line */
+}
+
+[data-theme="light"] .border-neutral-700 {
+  border-color: #cbd5e1 !important; /* secondary border line */
+}
+
+/* Text color overrides */
+[data-theme="light"] .text-neutral-100 {
+  color: #0f172a !important; /* dark slate heading */
+}
+
+[data-theme="light"] .text-neutral-200 {
+  color: #1e293b !important; /* dark body text */
+}
+
+[data-theme="light"] .text-neutral-300 {
+  color: #334155 !important; /* legible body description */
+}
+
+[data-theme="light"] .text-neutral-400 {
+  color: #475569 !important; /* slate subtext */
+}
+
+[data-theme="light"] .text-neutral-500 {
+  color: #64748b !important; /* slate secondary subtext */
+}
+
+[data-theme="light"] .text-white {
+  color: #0d1527 !important; /* Deep Midnight for headings */
+}
+
+/* Form and input elements */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Whitelist button primary elements and colors so their white text content is retained */
+[data-theme="light"] .bg-indigo-600,
+[data-theme="light"] .bg-indigo-650,
+[data-theme="light"] .bg-emerald-600,
+[data-theme="light"] .bg-emerald-500,
+[data-theme="light"] .bg-red-650,
+[data-theme="light"] .bg-red-600,
+[data-theme="light"] .bg-rose-600,
+[data-theme="light"] .bg-rose-500,
+[data-theme="light"] .bg-amber-600,
+[data-theme="light"] .bg-amber-500,
+[data-theme="light"] .bg-indigo-600 *,
+[data-theme="light"] .bg-indigo-650 *,
+[data-theme="light"] .bg-emerald-600 *,
+[data-theme="light"] .bg-emerald-500 *,
+[data-theme="light"] .bg-red-650 *,
+[data-theme="light"] .bg-red-600 *,
+[data-theme="light"] .bg-rose-600 *,
+[data-theme="light"] .bg-rose-500 *,
+[data-theme="light"] .bg-amber-600 *,
+[data-theme="light"] .bg-amber-500 * {
+  color: #ffffff !important;
+}
+
+/* Special Case: Sidebar Active Tab background / button */
+[data-theme="light"] .bg-indigo-500\/10 {
+  background-color: rgba(99, 102, 241, 0.08) !important; /* translucent active state */
+}
+
+/* Fix chart tooltip background */
+[data-theme="light"] h4.text-white,
+[data-theme="light"] .border-neutral-850 * {
+  color: inherit !important;
+}
+
+/* Shadow adjustments */
+[data-theme="light"] .shadow-indigo-500\/10 {
+  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.04), 0 4px 6px -4px rgba(99, 102, 241, 0.04) !important;
+}
+
+[data-theme="light"] .shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme="light"] .border {
+  border-width: 1px !important;
+}

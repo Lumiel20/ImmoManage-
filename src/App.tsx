@@ -27,7 +27,9 @@ import {
   Printer,
   Check,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -110,18 +112,74 @@ interface ActionLog {
   date: string;
 }
 
+// --- Robust Safe Fetch JSON Helper ---
+const safeFetchJson = async (url: string, options?: RequestInit) => {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let errMsg = `Erreur du serveur (code ${res.status})`;
+    try {
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const jsonErr = await res.json();
+        if (jsonErr && jsonErr.error && jsonErr.error.message) {
+          errMsg = jsonErr.error.message;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    
+    if (res.status === 401 || errMsg === 'Invalid token' || errMsg === 'Unauthorized') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.dispatchEvent(new Event('auth-unauthorized'));
+    }
+    
+    throw new Error(errMsg);
+  }
+  const contentType = res.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error("Le serveur a renvoyé une réponse invalide (pas au format JSON). Veuillez réessayer.");
+  }
+  return res.json();
+};
+
 // --- App Component ---
 
 export default function App() {
   const [user, setUser] = useState<User | null>(() => {
-    const u = localStorage.getItem('user');
-    return u ? JSON.parse(u) : null;
+    try {
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
+    } catch (e) {
+      localStorage.removeItem('user');
+      return null;
+    }
   });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [activeTab, setActiveTab] = useState('dashboard');
   const [currency, setCurrency] = useState<'EUR' | 'USD' | 'FCFA'>(() => {
     return (localStorage.getItem('immo_currency') as 'EUR' | 'USD' | 'FCFA') || 'EUR';
   });
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('immo_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('immo_theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
+  }, []);
 
   const formatPrice = (amount: number | null | undefined, rawOnlySymbol = false) => {
     if (amount === null || amount === undefined) {
@@ -169,8 +227,13 @@ export default function App() {
 
   // --- Notification & Expiry Tracking ---
   const [notifiedContrats, setNotifiedContrats] = useState<number[]>(() => {
-    const saved = localStorage.getItem('immo_notified_contrats');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('immo_notified_contrats');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      localStorage.removeItem('immo_notified_contrats');
+      return [];
+    }
   });
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -425,35 +488,42 @@ export default function App() {
   const fetchAllValidatedPayments = async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/contrats/payments/all', {
+      const json = await safeFetchJson('/api/v1/contrats/payments/all', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const json = await res.json();
       if (json.success) {
         setAllValidatedPayments(json.data);
       }
-    } catch (err) {
-      console.error("Error fetching validated payments:", err);
+    } catch (err: any) {
+      if (err?.message !== 'Invalid token' && err?.message !== 'Unauthorized') {
+        console.error("Error fetching validated payments:", err);
+      }
     }
   };
 
   useEffect(() => {
     if (token) {
-      fetchBiens();
-      fetchContrats();
-      fetchLocataires();
-      fetchAllValidatedPayments();
+      if (user && user.role === 'locataire') {
+        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+        syncWithBackend(user.email, fullName);
+      } else {
+        fetchBiens();
+        fetchContrats();
+        fetchLocataires();
+        fetchAllValidatedPayments();
+      }
     }
-  }, [token]);
+  }, [token, user?.role]);
 
   const fetchBiens = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/biens');
-      const json = await res.json();
+      const json = await safeFetchJson('/api/v1/biens');
       if (json.success) setBiens(json.data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err?.message !== 'Invalid token' && err?.message !== 'Unauthorized') {
+        console.error("Error fetching properties:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -462,26 +532,28 @@ export default function App() {
   const fetchContrats = async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/contrats', {
+      const json = await safeFetchJson('/api/v1/contrats', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const json = await res.json();
       if (json.success) setContrats(json.data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err?.message !== 'Invalid token' && err?.message !== 'Unauthorized') {
+        console.error("Error fetching contracts:", err);
+      }
     }
   };
 
   const fetchLocataires = async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/locataires', {
+      const json = await safeFetchJson('/api/v1/locataires', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const json = await res.json();
       if (json.success) setLocataires(json.data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err?.message !== 'Invalid token' && err?.message !== 'Unauthorized') {
+        console.error("Error fetching tenants:", err);
+      }
     }
   };
 
@@ -916,7 +988,7 @@ export default function App() {
       <div>
         <div class="section-title">ADMINISTRATEUR (MANDATAIRE)</div>
         <div class="card" style="font-size: 13px; color: #334155;">
-          <strong style="color: #0f172a; font-size: 14px;">ImmoTech Solutions SAS</strong><br/>
+          <strong style="color: #0f172a; font-size: 14px;">ImmoManage Solution</strong><br/>
           Service d'Administration des Biens<br/>
           RCS Paris B 123 456 789<br/>
           Siret: 12345678900011
@@ -1053,7 +1125,7 @@ export default function App() {
       <div>
         <div class="section-title">ADMINISTRATEUR DU BIEN</div>
         <div class="card" style="font-size: 13px; color: #334155; min-height: 120px;">
-          <strong style="color: #0f172a; font-size: 14px;">ImmoTech Solutions SAS</strong><br/>
+          <strong style="color: #0f172a; font-size: 14px;">ImmoManage Solution</strong><br/>
           Service d'Administration des Biens et Gérance<br/>
           RCS Paris B 123 456 789<br/>
           Siret: 12345678900011<br/>
@@ -1143,7 +1215,7 @@ export default function App() {
     <div style="margin-top: 50px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; font-size: 11px; color: #475569;">
       <div>
         <strong>Signature de l'Administrateur / Mandataire</strong>
-        <p style="color: #94a3b8; font-size: 10px; margin: 2px 0 0 0;">ImmoTech Solutions SAS</p>
+        <p style="color: #94a3b8; font-size: 10px; margin: 2px 0 0 0;">ImmoManage Solution</p>
         <div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-top: 10px;"></div>
         <p style="margin-top: 5px; color: #94a3b8;">Visa électronique enregistré le ${new Date().toLocaleDateString('fr-FR')}</p>
       </div>
@@ -2357,7 +2429,6 @@ export default function App() {
 
         {/* Currency Switcher (Devise) */}
         <div className="px-2 mb-6 shrink-0">
-          <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 block mb-1.5 font-mono">Devise de l'application</label>
           <div className="grid grid-cols-3 gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800/80">
             {(['EUR', 'USD', 'FCFA'] as const).map((curr) => (
               <button
@@ -2430,9 +2501,18 @@ export default function App() {
               <p className="opacity-50 text-[10px] truncate">{user?.email || 'admin@example.com'}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="text-neutral-500 hover:text-red-400 transition-colors ml-2 shrink-0">
-            <LogOut className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            <button 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+              className="text-neutral-500 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-neutral-800/50 transition-colors cursor-pointer"
+              title={theme === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+            </button>
+            <button onClick={handleLogout} className="text-neutral-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-neutral-800/50 transition-colors shrink-0 cursor-pointer" title="Se déconnecter">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </motion.aside>
 
@@ -2446,8 +2526,17 @@ export default function App() {
               <span className="font-bold text-white text-base tracking-tight">ImmoManage</span>
             </div>
             
-            {/* Compact Currency Switcher */}
-            <div className="flex bg-neutral-900 px-1 py-1 rounded-xl border border-neutral-800 text-[11px]">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+                className="text-neutral-500 hover:text-indigo-400 p-1.5 rounded-xl border border-neutral-800 bg-neutral-900 hover:bg-neutral-850 cursor-pointer flex items-center justify-center shrink-0 transition-all"
+                title={theme === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+              </button>
+
+              {/* Compact Currency Switcher */}
+              <div className="flex bg-neutral-900 px-1 py-1 rounded-xl border border-neutral-800 text-[11px]">
               {(['EUR', 'USD', 'FCFA'] as const).map((curr) => (
                 <button
                   key={curr}
@@ -2465,6 +2554,7 @@ export default function App() {
                   {curr === 'EUR' ? '€' : curr === 'USD' ? '$' : 'CFA'}
                 </button>
               ))}
+              </div>
             </div>
           </div>
 
@@ -2604,34 +2694,41 @@ export default function App() {
                   </div>
                 </div>
                 <div className="h-[280px] w-full font-sans text-xs">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={last6MonthsData}
-                      margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#262626" horizontal={true} vertical={false} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke="#737373" 
-                        tick={{ fill: '#a3a3a3' }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis 
-                        stroke="#737373" 
-                        tick={{ fill: '#a3a3a3' }}
-                        tickFormatter={(v) => formatPrice(v)}
-                        tickLine={false}
-                        axisLine={false}
-                        width={85}
-                      />
-                      <Tooltip 
-                        cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const dataObj = payload[0].payload;
-                            return (
-                              <div className="bg-neutral-950 border border-neutral-800 p-3 rounded-xl shadow-2xl text-xs space-y-1.5">
+                  {(() => {
+                    const isDark = theme === 'dark';
+                    const gridStroke = isDark ? '#262626' : '#e2e8f0';
+                    const axisStroke = isDark ? '#737373' : '#94a3b8';
+                    const tickColor = isDark ? '#a3a3a3' : '#475569';
+                    const cursorFill = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)';
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={last6MonthsData}
+                          margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} horizontal={true} vertical={false} />
+                          <XAxis 
+                            dataKey="name" 
+                            stroke={axisStroke} 
+                            tick={{ fill: tickColor }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis 
+                            stroke={axisStroke} 
+                            tick={{ fill: tickColor }}
+                            tickFormatter={(v) => formatPrice(v)}
+                            tickLine={false}
+                            axisLine={false}
+                            width={85}
+                          />
+                          <Tooltip 
+                            cursor={{ fill: cursorFill }}
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const dataObj = payload[0].payload;
+                                return (
+                                  <div className="bg-neutral-950 border border-neutral-800 p-3 rounded-xl shadow-2xl text-xs space-y-1.5">
                                 <p className="font-bold text-white border-b border-neutral-800 pb-1 mb-1">{dataObj.fullName}</p>
                                 {payload.map((entry: any, i: number) => (
                                   <div key={i} className="flex items-center gap-6 justify-between">
@@ -2672,6 +2769,8 @@ export default function App() {
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -4981,7 +5080,7 @@ export default function App() {
                   <div className="bg-neutral-950/50 p-4 rounded-xl border border-neutral-800/60 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-neutral-400">
                     <div>
                       <p className="font-bold text-neutral-300 uppercase tracking-wider text-[9px] mb-1">MANDATAIRE COMMISS_</p>
-                      <p className="text-white font-semibold">ImmoTech Solutions SAS</p>
+                      <p className="text-white font-semibold">ImmoManage Solution</p>
                       <p className="mt-0.5">Siret: 12345678900011</p>
                       <p>Honoraires appliqués : 8.00 %</p>
                     </div>

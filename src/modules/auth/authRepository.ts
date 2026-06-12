@@ -12,3 +12,7 @@ export const createUser = async (userData: any) => {
 export const findUserById = async (id: number) => {
   return db('users').where({ id }).first();
 };
+
+export const updateUser = async (id: number, data: any) => {
+  return db('users').where({ id }).update(data);
+};

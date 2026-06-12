@@ -27,7 +27,7 @@ export const create = async (data: any) => {
     });
 
     // 2. Create locataire linked to user
-    const [locataireId] = await trx('locataires').insert({
+    const [locataireId] = await trx('tenants').insert({
       user_id: userId,
       profession,
       revenu_mensuel: Number(revenu_mensuel) || 0,
@@ -43,7 +43,7 @@ export const update = async (id: number, data: any) => {
   
   return db.transaction(async (trx) => {
     // Find locataire to get user_id
-    const locataire = await trx('locataires').where({ id }).first();
+    const locataire = await trx('tenants').where({ id }).first();
     if (!locataire) {
       throw new Error('Tenant not found');
     }
@@ -56,8 +56,8 @@ export const update = async (id: number, data: any) => {
       phone
     });
 
-    // Update locataires table
-    await trx('locataires').where({ id }).update({
+    // Update tenants table
+    await trx('tenants').where({ id }).update({
       profession,
       revenu_mensuel: Number(revenu_mensuel) || 0,
       cni_numero
@@ -67,13 +67,13 @@ export const update = async (id: number, data: any) => {
 
 export const remove = async (id: number) => {
   return db.transaction(async (trx) => {
-    const locataire = await trx('locataires').where({ id }).first();
+    const locataire = await trx('tenants').where({ id }).first();
     if (!locataire) {
       throw new Error('Tenant not found');
     }
 
     // Delete locataire first then user
-    await trx('locataires').where({ id }).del();
+    await trx('tenants').where({ id }).del();
     await trx('users').where({ id: locataire.user_id }).del();
   });
 };

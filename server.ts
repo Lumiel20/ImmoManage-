@@ -21,6 +21,9 @@ async function startServer() {
   app.use(morgan("dev"));
   app.use(helmet({
     contentSecurityPolicy: false, // For easier dev with Vite
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
   }));
 
   // Ensure DB connection and run migrations
@@ -50,8 +53,8 @@ async function startServer() {
         console.log("Table 'users' created and seeded.");
       }
 
-      if (!(await db.schema.hasTable('biens'))) {
-        await db.schema.createTable('biens', (table) => {
+      if (!(await db.schema.hasTable('properties'))) {
+        await db.schema.createTable('properties', (table) => {
           table.increments('id').primary();
           table.string('titre').notNullable();
           table.text('description');
@@ -68,20 +71,20 @@ async function startServer() {
           table.timestamps(true, true);
         });
 
-        await db('biens').insert([
+        await db('properties').insert([
           { titre: 'Appartement Haussmannien', surface: 85, nb_pieces: 4, prix: 850000, ville: 'Paris', type: 'appartement', statut: 'disponible', latitude: 48.8566, longitude: 2.3522 },
           { titre: 'Villa contemporaine', surface: 250, nb_pieces: 6, prix: 1200000, ville: 'Nice', type: 'maison', statut: 'disponible', latitude: 43.7102, longitude: 7.2620 },
           { titre: 'Studio étudiant', surface: 20, nb_pieces: 1, prix: 120000, ville: 'Lyon', type: 'appartement', statut: 'vendu', latitude: 45.7640, longitude: 4.8357 },
           { titre: 'Bureau centre-ville', surface: 120, nb_pieces: 5, prix: 3500, ville: 'Bordeaux', type: 'bureau', statut: 'disponible', latitude: 44.8378, longitude: -0.5792 },
         ]);
-        console.log("Table 'biens' created and seeded.");
+        console.log("Table 'properties' created and seeded.");
       }
 
-      if (!(await db.schema.hasTable('contrats'))) {
-        await db.schema.createTable('contrats', (table) => {
+      if (!(await db.schema.hasTable('contracts'))) {
+        await db.schema.createTable('contracts', (table) => {
           table.increments('id').primary();
           table.string('type').notNullable(); // bail, vente, mandat
-          table.integer('bien_id').references('id').inTable('biens');
+          table.integer('bien_id').references('id').inTable('properties');
           table.integer('locataire_id').references('id').inTable('users');
           table.date('date_debut');
           table.date('date_fin');
@@ -91,10 +94,10 @@ async function startServer() {
           table.timestamps(true, true);
         });
 
-        const biens = await db('biens').select();
+        const biens = await db('properties').select();
         if (biens && biens.length > 0) {
           // Contrat qui expire dans exactement 7 jours (J+7) pour la démo de notification
-          await db('contrats').insert({
+          await db('contracts').insert({
             type: 'bail',
             bien_id: biens[0].id,
             date_debut: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -105,7 +108,7 @@ async function startServer() {
 
           // Deuxième contrat standard
           if (biens.length > 3) {
-            await db('contrats').insert({
+            await db('contracts').insert({
               type: 'bail',
               bien_id: biens[3].id,
               date_debut: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -114,13 +117,13 @@ async function startServer() {
             });
           }
         }
-        console.log("Table 'contrats' created and seeded.");
+        console.log("Table 'contracts' created and seeded.");
       }
 
       if (!(await db.schema.hasTable('documents'))) {
         await db.schema.createTable('documents', (table) => {
           table.increments('id').primary();
-          table.integer('contrat_id').references('id').inTable('contrats').onDelete('CASCADE');
+          table.integer('contrat_id').references('id').inTable('contracts').onDelete('CASCADE');
           table.string('titre').notNullable();
           table.string('type').notNullable(); // bail, quittance, autre
           table.text('url').notNullable();
@@ -133,7 +136,7 @@ async function startServer() {
       if (!(await db.schema.hasTable('payments'))) {
         await db.schema.createTable('payments', (table) => {
           table.increments('id').primary();
-          table.integer('contrat_id').references('id').inTable('contrats').onDelete('CASCADE');
+          table.integer('contrat_id').references('id').inTable('contracts').onDelete('CASCADE');
           table.integer('month_index').notNullable(); // 0 to 11
           table.integer('year').notNullable();
           table.float('amount').notNullable();
@@ -147,8 +150,8 @@ async function startServer() {
         console.log("Table 'payments' created.");
       }
 
-      if (!(await db.schema.hasTable('proprietaires'))) {
-        await db.schema.createTable('proprietaires', (table) => {
+      if (!(await db.schema.hasTable('owners'))) {
+        await db.schema.createTable('owners', (table) => {
           table.increments('id').primary();
           table.integer('user_id').references('id').inTable('users').unique();
           table.string('entreprise');
@@ -156,11 +159,11 @@ async function startServer() {
           table.string('rib');
           table.timestamps(true, true);
         });
-        console.log("Table 'proprietaires' created.");
+        console.log("Table 'owners' created.");
       }
 
-      if (!(await db.schema.hasTable('locataires'))) {
-        await db.schema.createTable('locataires', (table) => {
+      if (!(await db.schema.hasTable('tenants'))) {
+        await db.schema.createTable('tenants', (table) => {
           table.increments('id').primary();
           table.integer('user_id').references('id').inTable('users').unique();
           table.string('profession');
@@ -168,14 +171,14 @@ async function startServer() {
           table.string('cni_numero');
           table.timestamps(true, true);
         });
-        console.log("Table 'locataires' created.");
+        console.log("Table 'tenants' created.");
 
         // Seed some owners and tenants
         const admin = await db('users').where({ role: 'admin' }).first();
         if (admin) {
-          const ownerExists = await db('proprietaires').where({ user_id: admin.id }).first();
+          const ownerExists = await db('owners').where({ user_id: admin.id }).first();
           if (!ownerExists) {
-            await db('proprietaires').insert({
+            await db('owners').insert({
               user_id: admin.id,
               entreprise: 'ImmoTech Solutions',
               siret: '12345678900011',
@@ -200,9 +203,9 @@ async function startServer() {
           tenantUserId = tenantUser.id;
         }
         
-        const locataireExists = await db('locataires').where({ user_id: tenantUserId }).first();
+        const locataireExists = await db('tenants').where({ user_id: tenantUserId }).first();
         if (!locataireExists) {
-          await db('locataires').insert({
+          await db('tenants').insert({
             user_id: tenantUserId,
             profession: 'Ingénieur',
             revenu_mensuel: 3500,
@@ -210,7 +213,7 @@ async function startServer() {
           });
         }
 
-        console.log("Locataires seeded.");
+        console.log("Tenants seeded.");
       }
     } catch (error) {
       console.error("Database setup failed:", error);
