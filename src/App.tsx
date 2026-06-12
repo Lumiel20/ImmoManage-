@@ -144,6 +144,81 @@ const safeFetchJson = async (url: string, options?: RequestInit) => {
   return res.json();
 };
 
+// --- Helper Skeleton Screen Components ---
+
+function BienCardSkeleton() {
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col justify-between shadow-md select-none">
+      <div>
+        <div className="aspect-[4/3] bg-neutral-800/60 relative overflow-hidden animate-pulse">
+          <div className="absolute top-4 right-4 w-16 h-5 bg-neutral-700/50 rounded-full" />
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex justify-between items-start gap-2 animate-pulse">
+            <div className="h-5 bg-neutral-800 rounded-lg w-2/3" />
+            <div className="h-4 bg-neutral-800 rounded-full w-14" />
+          </div>
+          <div className="h-4 bg-neutral-800/70 rounded-md w-1/3 animate-pulse flex items-center gap-1">
+            <div className="w-3.5 h-3.5 bg-neutral-700 rounded-full" />
+            <div className="h-3 w-16 bg-neutral-800 rounded" />
+          </div>
+          <div className="space-y-2 mt-4 animate-pulse">
+            <div className="h-3.5 bg-neutral-800/50 rounded-md w-full" />
+            <div className="h-3.5 bg-neutral-800/50 rounded-md w-4/5" />
+          </div>
+          <div className="flex gap-4 mt-4 animate-pulse">
+            <div className="h-3 bg-neutral-800 rounded w-10" />
+            <div className="h-3 bg-neutral-800 rounded w-10" />
+          </div>
+        </div>
+      </div>
+      <div className="px-5 pb-5 pt-4 flex justify-between items-center bg-neutral-900/40 border-t border-neutral-800/40">
+        <div className="h-6 bg-neutral-800 rounded-md w-24 animate-pulse" />
+        <div className="flex items-center gap-1">
+          <div className="w-8 h-8 bg-neutral-800 rounded-xl animate-pulse" />
+          <div className="w-8 h-8 bg-neutral-800 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContratRowSkeleton() {
+  return (
+    <tr className="border-b border-neutral-800 select-none">
+      <td className="px-6 py-4">
+        <div className="h-4 bg-neutral-850 rounded-md w-32 animate-pulse" />
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-neutral-850 rounded-md w-16 animate-pulse" />
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-neutral-850 rounded-md w-40 animate-pulse" />
+      </td>
+      <td className="px-6 py-4">
+        <div className="space-y-1.5">
+          <div className="h-3.5 bg-neutral-850/60 rounded-md w-24 animate-pulse" />
+          <div className="h-3.5 bg-neutral-850/60 rounded-md w-24 animate-pulse" />
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-4 bg-neutral-850 rounded-md w-20 animate-pulse" />
+      </td>
+      <td className="px-6 py-4">
+        <div className="h-5 bg-neutral-850/50 rounded-full w-14 animate-pulse" />
+      </td>
+      <td className="px-6 py-4 text-right">
+        <div className="flex justify-end gap-1.5">
+          <div className="w-8 h-8 bg-neutral-850/60 rounded-lg animate-pulse" />
+          <div className="w-8 h-8 bg-neutral-850/60 rounded-lg animate-pulse" />
+          <div className="w-8 h-8 bg-neutral-850/60 rounded-lg animate-pulse" />
+          <div className="w-8 h-8 bg-neutral-850/60 rounded-lg animate-pulse" />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // --- App Component ---
 
 export default function App() {
@@ -209,6 +284,16 @@ export default function App() {
   const [contrats, setContrats] = useState<Contrat[]>([]);
   const [locataires, setLocataires] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingBiens, setLoadingBiens] = useState(false);
+  const [loadingContrats, setLoadingContrats] = useState(false);
+  const [appLoading, setAppLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Auth form state
   const [email, setEmail] = useState('');
@@ -517,6 +602,7 @@ export default function App() {
 
   const fetchBiens = async () => {
     setLoading(true);
+    setLoadingBiens(true);
     try {
       const json = await safeFetchJson('/api/v1/biens');
       if (json.success) setBiens(json.data);
@@ -526,11 +612,13 @@ export default function App() {
       }
     } finally {
       setLoading(false);
+      setLoadingBiens(false);
     }
   };
 
   const fetchContrats = async () => {
     if (!token) return;
+    setLoadingContrats(true);
     try {
       const json = await safeFetchJson('/api/v1/contrats', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -540,6 +628,8 @@ export default function App() {
       if (err?.message !== 'Invalid token' && err?.message !== 'Unauthorized') {
         console.error("Error fetching contracts:", err);
       }
+    } finally {
+      setLoadingContrats(false);
     }
   };
 
@@ -2256,6 +2346,65 @@ export default function App() {
   const locataireErrors = getLocataireErrors();
   const contratErrors = getContratErrors();
 
+  if (appLoading) {
+    return (
+      <div className="fixed inset-0 bg-neutral-950 flex flex-col items-center justify-center z-50 select-none">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col items-center space-y-6 max-w-sm px-4"
+        >
+          {/* Circular Spoke-Gradient Spinner matching the image */}
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <svg
+              className="w-full h-full animate-spin"
+              viewBox="0 0 100 100"
+              style={{ animationDuration: '1.2s', animationTimingFunction: 'linear' }}
+            >
+              {Array.from({ length: 12 }).map((_, i) => {
+                const rotate = i * 30;
+                // Match the colors perfectly to the image: going from pure/white cyan around one side to rich bright turquoise and slightly deeper teal.
+                const spokeColors = [
+                  '#e0fcfc', // 0 deg (12 o'clock)
+                  '#b5fcf9', // 30 deg
+                  '#9bfbf6', // 60 deg
+                  '#75fcf3', // 90 deg (3 o'clock)
+                  '#53f9ee', // 120 deg
+                  '#31f3e4', // 150 deg
+                  '#1ee7d7', // 180 deg (6 o'clock)
+                  '#12cfbe', // 210 deg
+                  '#11baa9', // 240 deg
+                  '#0ca595', // 270 deg (9 o'clock)
+                  '#0c8e80', // 300 deg
+                  '#0d766a', // 330 deg
+                ];
+                
+                return (
+                  <rect
+                    key={i}
+                    x="46"
+                    y="10"
+                    width="8"
+                    height="24"
+                    rx="4"
+                    transform={`rotate(${rotate} 50 50)`}
+                    fill={spokeColors[i]}
+                  />
+                );
+              })}
+            </svg>
+          </div>
+          
+          <div className="text-center space-y-1.5">
+            <h1 className="text-xl font-semibold text-white tracking-tight font-sans">ImmoManage</h1>
+            <p className="text-neutral-500 text-xs font-mono tracking-widest uppercase animate-pulse">Chargement en cours...</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (!token) {
     return (
       <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 selection:bg-indigo-500/30">
@@ -2875,49 +3024,49 @@ export default function App() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(loading ? Array.from({length: 6}) : filteredBiens).map((bien, i) => (
-                  <motion.div 
-                    key={bien?.id || i} 
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: Math.min(i * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
-                    whileHover={{ y: -4, scale: 1.01 }}
-                    className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden group hover:border-neutral-700 transition-all flex flex-col justify-between shadow-md hover:shadow-xl"
-                  >
-                    <div>
-                      <div className="aspect-[4/3] bg-neutral-800 relative overflow-hidden">
-                        {loading ? (
-                          <div className="w-full h-full animate-pulse" />
-                        ) : (
+                {loadingBiens ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <BienCardSkeleton key={i} />
+                  ))
+                ) : (
+                  filteredBiens.map((bien, i) => (
+                    <motion.div 
+                      key={bien.id} 
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: Math.min(i * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                      whileHover={{ y: -4, scale: 1.01 }}
+                      className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden group hover:border-neutral-700 transition-all flex flex-col justify-between shadow-md hover:shadow-xl"
+                    >
+                      <div>
+                        <div className="aspect-[4/3] bg-neutral-800 relative overflow-hidden">
                           <img src={`https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=800`} alt="house" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
-                        )}
-                        <div className="absolute top-4 right-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10">
-                          {loading ? '...' : bien.type}
+                          <div className="absolute top-4 right-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10">
+                            {bien.type}
+                          </div>
+                        </div>
+                        <div className="p-5 space-y-2">
+                          <div className="flex justify-between items-start gap-2">
+                            <h4 className="text-white font-semibold truncate leading-tight">{bien.titre}</h4>
+                            <span className={`px-2 py-0.5 shrink-0 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                              bien.statut === 'disponible' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}>
+                              {bien.statut}
+                            </span>
+                          </div>
+                          <p className="text-neutral-500 text-xs flex items-center gap-1"><MapPin className="w-3 h-3"/> {bien.ville}</p>
+                          <p className="text-neutral-400 text-xs line-clamp-2 mt-2 leading-relaxed">
+                            {bien.description || "Aucune description fournie pour ce bien immobilier d'exception."}
+                          </p>
+                          <div className="flex gap-4 text-xs font-mono text-neutral-500 mt-2">
+                            <span>{bien.surface || 45} m²</span>
+                            <span>•</span>
+                            <span>{bien.nb_pieces || 2} pièces</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="p-5 space-y-2">
-                        <div className="flex justify-between items-start gap-2">
-                          <h4 className="text-white font-semibold truncate leading-tight">{loading ? '...' : bien.titre}</h4>
-                          <span className={`px-2 py-0.5 shrink-0 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                            bien?.statut === 'disponible' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}>
-                            {loading ? '...' : bien.statut}
-                          </span>
-                        </div>
-                        <p className="text-neutral-500 text-xs flex items-center gap-1"><MapPin className="w-3 h-3"/> {loading ? '...' : bien.ville}</p>
-                        <p className={`text-neutral-400 text-xs line-clamp-2 mt-2 leading-relaxed ${loading ? 'opacity-0' : ''}`}>
-                          {bien?.description || "Aucune description fournie pour ce bien immobilier d'exception."}
-                        </p>
-                        <div className="flex gap-4 text-xs font-mono text-neutral-500 mt-2">
-                          <span>{bien?.surface || 45} m²</span>
-                          <span>•</span>
-                          <span>{bien?.nb_pieces || 2} pièces</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="px-5 pb-5 pt-2 flex justify-between items-center bg-neutral-900/50 border-t border-neutral-800/40">
-                      <span className="text-lg font-bold text-white leading-none">{loading ? '...' : formatPrice(bien.prix)}</span>
-                      {!loading && (
+                      <div className="px-5 pb-5 pt-2 flex justify-between items-center bg-neutral-900/50 border-t border-neutral-800/40">
+                        <span className="text-lg font-bold text-white leading-none">{formatPrice(bien.prix)}</span>
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEditBien(bien)} className="text-amber-400 hover:bg-amber-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Modifier">
                             <Edit className="w-4 h-4" />
@@ -2926,11 +3075,11 @@ export default function App() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-                {!loading && filteredBiens.length === 0 && (
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+                {!loadingBiens && filteredBiens.length === 0 && (
                   <div className="col-span-full py-12 text-center text-neutral-500 italic">
                     Aucun bien correspondant aux filtres de recherche.
                   </div>
@@ -3048,7 +3197,7 @@ export default function App() {
                 </motion.div>
               )}
               <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
-                {contrats.length === 0 ? (
+                {!loadingContrats && contrats.length === 0 ? (
                   <div className="p-8 text-center text-neutral-500 italic">Aucun contrat trouvé.</div>
                 ) : (
                   <div className="overflow-x-auto w-full scrollbar-none">
@@ -3065,43 +3214,49 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-800 text-sm">
-                        {contrats.map(contrat => (
-                          <tr key={contrat.id} className="hover:bg-neutral-800/40 transition-colors">
-                            <td className="px-6 py-4 font-medium text-white">{contrat.bien_titre}</td>
-                            <td className="px-6 py-4 capitalize">{contrat.type}</td>
-                            <td className="px-6 py-4">{contrat.locataire_email || 'N/A'}</td>
-                            <td className="px-6 py-4 text-xs">
-                              {contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString() : 'N/A'} - <br/>
-                              {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString() : 'Indéterminé'}
-                            </td>
-                            <td className="px-6 py-4 font-mono">
-                              {contrat.type === 'vente' ? formatPrice(contrat.prix_vente) : `${formatPrice(contrat.loyer_mensuel)}/mois`}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                                contrat.statut === 'actif' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                              }`}>
-                                {contrat.statut}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button onClick={() => handlePrintContrat(contrat)} className="text-emerald-400 hover:bg-emerald-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Exporter en PDF / Imprimer les détails">
-                                  <Printer className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => openDocModal(contrat)} className="text-indigo-400 hover:bg-indigo-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Documents (Baux, Quittances)">
-                                  <Paperclip className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => openEditContrat(contrat)} className="text-amber-400 hover:bg-amber-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Modifier">
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDeleteContrat(contrat.id)} className="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Supprimer">
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {loadingContrats ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <ContratRowSkeleton key={i} />
+                          ))
+                        ) : (
+                          contrats.map(contrat => (
+                            <tr key={contrat.id} className="hover:bg-neutral-800/40 transition-colors">
+                              <td className="px-6 py-4 font-medium text-white">{contrat.bien_titre}</td>
+                              <td className="px-6 py-4 capitalize">{contrat.type}</td>
+                              <td className="px-6 py-4">{contrat.locataire_email || 'N/A'}</td>
+                              <td className="px-6 py-4 text-xs">
+                                {contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString() : 'N/A'} - <br/>
+                                {contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString() : 'Indéterminé'}
+                              </td>
+                              <td className="px-6 py-4 font-mono">
+                                {contrat.type === 'vente' ? formatPrice(contrat.prix_vente) : `${formatPrice(contrat.loyer_mensuel)}/mois`}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                                  contrat.statut === 'actif' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                }`}>
+                                  {contrat.statut}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button onClick={() => handlePrintContrat(contrat)} className="text-emerald-400 hover:bg-emerald-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Exporter en PDF / Imprimer les détails">
+                                    <Printer className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => openDocModal(contrat)} className="text-indigo-400 hover:bg-indigo-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Documents (Baux, Quittances)">
+                                    <Paperclip className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => openEditContrat(contrat)} className="text-amber-400 hover:bg-amber-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Modifier">
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDeleteContrat(contrat.id)} className="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors cursor-pointer" title="Supprimer">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
