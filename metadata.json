@@ -1,6 +1,6 @@
 {
   "name": "ImmoManage API",
-  "description": "API RESTful complète pour la gestion immobilière : biens, propriétaires, locataires, contrats et paiements.",
+  "description": "Comprehensive full-stack real estate portfolio management suite containing property, contract, tenant ledger, and financial generation services.",
   "requestFramePermissions": [
     "geolocation"
   ],
