@@ -41,8 +41,12 @@ async function startServer() {
           table.boolean('is_active').defaultTo(true);
           table.timestamps(true, true);
         });
-        
-        // Seed initial admin if created
+        console.log("Table 'users' created.");
+      }
+
+      // Ensure / update default admin
+      const adminExists = await db('users').where({ email: 'admin@example.com' }).first();
+      if (!adminExists) {
         await db('users').insert({
           email: 'admin@example.com',
           password_hash: await bcrypt.hash('password123', 12),
@@ -50,8 +54,12 @@ async function startServer() {
           first_name: 'Admin',
           last_name: 'System'
         });
-        console.log("Table 'users' created and seeded.");
+      } else {
+        await db('users').where({ email: 'admin@example.com' }).update({
+          password_hash: await bcrypt.hash('password123', 12)
+        });
       }
+
 
       if (!(await db.schema.hasTable('properties'))) {
         await db.schema.createTable('properties', (table) => {
@@ -215,6 +223,69 @@ async function startServer() {
 
         console.log("Tenants seeded.");
       }
+
+      // Always ensure our core demo accounts (admin and tenant) exist and have valid password hashes
+      const finalAdmin = await db('users').where({ email: 'admin@example.com' }).first();
+      let adminId;
+      if (!finalAdmin) {
+        const inserted = await db('users').insert({
+          email: 'admin@example.com',
+          password_hash: await bcrypt.hash('password123', 12),
+          role: 'admin',
+          first_name: 'Admin',
+          last_name: 'System'
+        });
+        adminId = inserted[0];
+      } else {
+        adminId = finalAdmin.id;
+        await db('users').where({ id: adminId }).update({
+          password_hash: await bcrypt.hash('password123', 12)
+        });
+      }
+
+      let finalTenant = await db('users').where({ email: 'jean.dupont@test.fr' }).first();
+      let tenantUserId;
+      if (!finalTenant) {
+        const dummyUser = await db('users').insert({
+          email: 'jean.dupont@test.fr',
+          password_hash: await bcrypt.hash('tenant123', 12),
+          role: 'locataire',
+          first_name: 'Jean',
+          last_name: 'Dupont'
+        });
+        tenantUserId = dummyUser[0];
+      } else {
+        tenantUserId = finalTenant.id;
+        await db('users').where({ id: tenantUserId }).update({
+          password_hash: await bcrypt.hash('tenant123', 12)
+        });
+      }
+
+      // Ensure owners and tenants tables have sub-records matching the database's foreign key schemas
+      if (await db.schema.hasTable('owners')) {
+        const ownerExists = await db('owners').where({ user_id: adminId }).first();
+        if (!ownerExists) {
+          await db('owners').insert({
+            user_id: adminId,
+            entreprise: 'ImmoTech Solutions',
+            siret: '12345678900011',
+            rib: 'FR76 1234 5678 9012 3456 7890 123'
+          }).catch(() => {});
+        }
+      }
+
+      if (await db.schema.hasTable('tenants')) {
+        const locataireExists = await db('tenants').where({ user_id: tenantUserId }).first();
+        if (!locataireExists) {
+          await db('tenants').insert({
+            user_id: tenantUserId,
+            profession: 'Ingénieur',
+            revenu_mensuel: 3500,
+            cni_numero: 'ABC123456'
+          }).catch(() => {});
+        }
+      }
+
     } catch (error) {
       console.error("Database setup failed:", error);
     }

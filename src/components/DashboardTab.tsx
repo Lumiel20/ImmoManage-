@@ -231,22 +231,32 @@ export function DashboardTab({
                       if (active && payload && payload.length) {
                         const dataObj = payload[0].payload;
                         return (
-                          <div className="bg-neutral-950 border border-neutral-800 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 font-sans">
-                            <p className="font-bold text-white border-b border-neutral-800 pb-1 mb-1">{dataObj.fullName}</p>
-                            {payload.map((entry: any, i: number) => (
-                              <div key={i} className="flex items-center gap-6 justify-between border-b border-neutral-900/50 pb-1">
-                                <span className="flex items-center gap-1.5 text-neutral-400">
-                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                                  {entry.name === 'Loyers Encaissés' ? 'Collected' : 'Arrears'} :
-                                </span>
-                                <span className="font-semibold text-white font-mono">
-                                  {formatPrice(entry.value)}
-                                </span>
-                              </div>
-                            ))}
-                            <div className="pt-1.5 mt-1 flex gap-6 justify-between font-bold text-indigo-400">
-                              <span>Total Expected:</span>
-                              <span className="font-mono text-indigo-300">
+                          <div className="bg-neutral-950/95 border border-neutral-800 p-3.5 rounded-xl shadow-2xl text-xs space-y-2 font-sans backdrop-blur-md min-w-[200px]">
+                            <p className="font-bold text-white border-b border-neutral-800 pb-1.5 mb-1.5 flex justify-between items-center">
+                              <span>{dataObj.fullName}</span>
+                              <span className="text-[10px] text-neutral-500 font-normal">Income Summary</span>
+                            </p>
+                            {payload.map((entry: any, i: number) => {
+                              const isCollected = entry.dataKey === 'Loyers Encaissés' || entry.name === 'Collected';
+                              const labelName = isCollected ? 'Collected' : 'Arrears';
+                              const labelColor = isCollected ? 'text-indigo-400' : 'text-rose-400';
+                              const dotColor = isCollected ? 'bg-indigo-500' : 'bg-rose-500';
+                              
+                              return (
+                                <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+                                  <span className="flex items-center gap-1.5 text-neutral-400">
+                                    <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+                                    {labelName} :
+                                  </span>
+                                  <span className={`font-semibold font-mono ${labelColor}`}>
+                                    {formatPrice(entry.value)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            <div className="pt-2 mt-1.5 border-t border-neutral-800/60 flex justify-between font-bold text-white">
+                              <span className="text-neutral-300">Total Expected:</span>
+                              <span className="font-mono text-emerald-400">
                                 {formatPrice((dataObj['Loyers Encaissés'] || 0) + (dataObj['En Retard / Impayés'] || 0))}
                               </span>
                             </div>

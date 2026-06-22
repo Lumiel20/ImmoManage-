@@ -117,6 +117,7 @@ export function usePropertyApp() {
     firstName, setFirstName,
     lastName, setLastName,
     authError, setAuthError,
+    useLocalAuth, setUseLocalAuth,
     syncWithBackend,
     handleLogin,
     handleRegister,
@@ -489,6 +490,8 @@ export function usePropertyApp() {
     handleRegister,
     handleGoogleSignIn,
     handleLogout,
+    useLocalAuth,
+    setUseLocalAuth,
     
     // Errors
     propertyErrors,

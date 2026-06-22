@@ -58,6 +58,8 @@ export default function App() {
         handleLogin={store.handleLogin}
         handleRegister={store.handleRegister}
         handleGoogleSignIn={store.handleGoogleSignIn}
+        useLocalAuth={store.useLocalAuth}
+        setUseLocalAuth={store.setUseLocalAuth}
       />
     );
   }

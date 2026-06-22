@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { AlertTriangle, Key } from 'lucide-react';
+import { AlertTriangle, Key, Eye, EyeOff } from 'lucide-react';
 
 interface AuthViewProps {
   authMode: 'login' | 'register';
@@ -19,6 +19,8 @@ interface AuthViewProps {
   handleLogin: (e: React.FormEvent) => void;
   handleRegister: (e: React.FormEvent) => void;
   handleGoogleSignIn: () => void;
+  useLocalAuth: boolean;
+  setUseLocalAuth: (val: boolean) => void;
 }
 
 export function AuthView({
@@ -37,8 +39,12 @@ export function AuthView({
   loading,
   handleLogin,
   handleRegister,
-  handleGoogleSignIn
+  handleGoogleSignIn,
+  useLocalAuth,
+  setUseLocalAuth
 }: AuthViewProps) {
+  const [showPassword, setShowPassword] = React.useState(false);
+
   return (
     <div id="auth-root" className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 selection:bg-indigo-500/30">
       <motion.div 
@@ -52,14 +58,13 @@ export function AuthView({
           </div>
           <div>
             <h1 id="auth-title" className="text-2xl font-bold text-white tracking-tight">ImmoManage</h1>
-            <p id="auth-subtitle" className="text-neutral-400 text-sm">Gestion Immobilière avec Firebase Auth</p>
           </div>
         </div>
 
         <div id="auth-tabs" className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 mb-6">
           <button 
             id="tab-btn-login"
-            onClick={() => { setAuthMode('login'); setEmail(''); setPassword(''); setAuthError(null); }}
+            onClick={() => { setAuthMode('login'); setEmail(''); setPassword(''); setAuthError(null); setShowPassword(false); }}
             className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               authMode === 'login' ? 'bg-indigo-600 text-white shadow' : 'text-neutral-400 hover:text-white'
             }`}
@@ -68,7 +73,7 @@ export function AuthView({
           </button>
           <button 
             id="tab-btn-register"
-            onClick={() => { setAuthMode('register'); setEmail(''); setPassword(''); setAuthError(null); }}
+            onClick={() => { setAuthMode('register'); setEmail(''); setPassword(''); setAuthError(null); setShowPassword(false); }}
             className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               authMode === 'register' ? 'bg-indigo-600 text-white shadow' : 'text-neutral-400 hover:text-white'
             }`}
@@ -149,14 +154,37 @@ export function AuthView({
           
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-300 ml-1">Mot de passe</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all text-sm"
-              placeholder="••••••••"
-              required
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-4 pr-11 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all text-sm"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-500 hover:text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              >
+                {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 bg-neutral-950/40 p-3 rounded-xl border border-neutral-800/60 mt-1">
+            <input
+              type="checkbox"
+              id="local-auth-checkbox"
+              checked={useLocalAuth}
+              onChange={(e) => setUseLocalAuth(e.target.checked)}
+              className="w-4.5 h-4.5 rounded border-neutral-800 text-indigo-600 focus:ring-indigo-500/40 bg-neutral-950 pointer-events-auto cursor-pointer transition-all focus:ring-2"
             />
+            <label htmlFor="local-auth-checkbox" className="text-xs text-neutral-400 cursor-pointer select-none leading-tight">
+              Utiliser l'authentification locale <span className="text-indigo-400 font-medium">(sans Firebase)</span>
+            </label>
           </div>
 
           <button 
