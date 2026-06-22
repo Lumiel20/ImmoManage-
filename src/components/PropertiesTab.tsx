@@ -29,6 +29,31 @@ export function PropertiesTab({
   openEditBien,
   handleDeleteBien
 }: PropertiesTabProps) {
+  // Helper to highlight terms matching the current search query
+  const highlightText = (text: string, highlight: string) => {
+    if (!text) return '';
+    if (!highlight || !highlight.trim()) {
+      return <span>{text}</span>;
+    }
+    const escapedHighlight = highlight.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`(${escapedHighlight})`, 'gi');
+    const parts = text.split(regex);
+    
+    return (
+      <>
+        {parts.map((part, i) => 
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <mark key={i} className="bg-indigo-500/40 text-indigo-200 rounded px-0.5 font-medium leading-none py-[2px] border-b border-indigo-400/40">
+              {part}
+            </mark>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </>
+    );
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 15 }} 
@@ -90,16 +115,16 @@ export function PropertiesTab({
                 </div>
                 <div className="p-5 space-y-2">
                   <div className="flex justify-between items-start gap-2">
-                    <h4 className="text-white font-semibold truncate leading-tight font-sans">{prop.titre}</h4>
+                    <h4 className="text-white font-semibold truncate leading-tight font-sans">{highlightText(prop.titre, searchTerm)}</h4>
                     <span className={`px-2 py-0.5 shrink-0 rounded-full text-[10px] font-bold uppercase tracking-widest font-sans ${
                       prop.statut === 'disponible' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                     }`}>
                       {prop.statut === 'disponible' ? 'Available' : 'Occupied'}
                     </span>
                   </div>
-                  <p className="text-neutral-500 text-xs flex items-center gap-1 font-sans"><MapPin className="w-3 h-3"/> {prop.ville}</p>
+                  <p className="text-neutral-500 text-xs flex items-center gap-1 font-sans"><MapPin className="w-3 h-3"/> {highlightText(prop.ville, searchTerm)}</p>
                   <p className="text-neutral-400 text-xs line-clamp-2 mt-2 leading-relaxed font-sans">
-                    {prop.description || "No description provided for this premium property."}
+                    {prop.description ? highlightText(prop.description, searchTerm) : "No description provided for this premium property."}
                   </p>
                   <div className="flex gap-4 text-xs font-mono text-neutral-500 mt-2">
                     <span>{prop.surface || 45} m²</span>
